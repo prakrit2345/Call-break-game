@@ -3,19 +3,30 @@
 #include <cstdlib>
 #include <ctime>
 using namespace std;
-int main(){
+class Deck{
+    public:
     int array[52];
+    Deck(){
+        
     for(int i=0;i<52;i++){
         array[i]=i+1;
     }
-    srand(time(0));
+    
     for(int i=51;i>=0;i--){
         
         int j=rand()%(i+1);
         swap(array[i],array[j]);
     }
+      }
+
+};
+int main(){
+    srand(time(0));
+    Deck s;
+    
+    
     for(int i=0;i<52;i++){
-        cout<<array[i]<<" ";
+        cout<<s.array[i]<<" ";
     }
     cout <<endl;
     
@@ -26,18 +37,18 @@ int main(){
         switch (k)
         {
         case 0:
-            p1[round-1]=array[i];
+            p1[round-1]=s.array[i];
             break;
         case 1:
-            p2[round-1]=array[i];
+            p2[round-1]=s.array[i];
             break;
         case 2:
-            p3[round-1]=array[i];
+            p3[round-1]=s.array[i];
             
             break;
         
         default:
-            p4[round-1]=array[i];
+            p4[round-1]=s.array[i];
             round++;
             break;
          }   
