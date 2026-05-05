@@ -1,20 +1,25 @@
 
 #include "entities.h"
 #include <cstdlib>
+#include <string>
 #include <ctime>
+#include <iostream>
 using namespace std;
-Card::Card() : suit(0), value(0) {
+Card::Card() : suit("spades"), value(0), index(0) {
     texture = {0};
 }
 
-void Card::load(int cardNum) {
-    suit = (cardNum - 1) / 13;
-    value = (cardNum - 1) % 13 + 1;
 
-    string suits[] = {"spades", "clubs", "hearts", "diamonds"};
-    string name = to_string(value) + "_of_" + suits[suit] + ".png";
+void Card::load(int cardNum) {
+    int n = (cardNum - 1) / 13;
+    value = (cardNum - 1) % 13 + 2;
+    string suits_array[4]={"spades", "clubs", "hearts", "diamonds"};
+    suit=suits_array[n];
+
+    string name = to_string(value) + "_of_" + suit + ".png";
 
     texture = LoadTexture(("cards/" + name).c_str());
+    index = cardNum;
 }
 
 void Card::unload() {
@@ -22,10 +27,7 @@ void Card::unload() {
         UnloadTexture(texture);
 }
 
-bool Card::operator>(const Card& o) const {
-    if (suit == o.suit) return value > o.value;
-    return suit == 0;
-}
+
 
 // ───────── DECK ─────────
 Deck::Deck() {
@@ -51,12 +53,104 @@ Player::Player() {
     bid = tricksWon = score = 0;
     isHuman = false;
 }
+int Player::getCardIndex(string leadSuit, int currentBest, bool isAIFirstMove) {
+    if (isHuman) {
+        Vector2 mouse = GetMousePosition();
+        for (int i = 0; i < handSize; i++) {
+            if (CheckCollisionPointRec(mouse, rects[i]) &&
+                IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                return i;
+            }
+        }
+        return -1;
+    } else {
+        if(isAIFirstMove){
+            return 0;
+            isAIFirstMove=false;
 
-Player::Player(string n, bool human) {
+        }
+        else{
+
+        // ───────── check if must beat ─────────
+        bool mustBeat = false;
+
+        for (int i = 0; i < handSize; i++) {
+            if (hand[i].suit == leadSuit && hand[i].value > currentBest) {
+                mustBeat = true;
+                break;
+            }
+        }
+
+        // ───────── if must beat, choose smallest winning card ─────────
+        if (mustBeat) {
+            int best = -1;
+
+            for (int i = 0; i < handSize; i++) {
+                if (hand[i].suit == leadSuit && hand[i].value > currentBest) {
+                    if (best == -1 || hand[i].value < hand[best].value) {
+                        best = i;
+                    }
+                }
+            }
+
+            return best;
+        }
+
+        // ───────── follow suit normally ─────────
+        int lowestLead = -1;
+        int lowestLeadVal = 15;
+
+        for (int i = 0; i < handSize; i++) {
+            if (hand[i].suit == leadSuit) {
+                if (hand[i].value < lowestLeadVal) {
+                    lowestLeadVal = hand[i].value;
+                    lowestLead = i;
+                }
+            }
+        }
+
+        if (lowestLead != -1) {
+            return lowestLead;
+        }
+
+        // ───────── no lead suit → play smallest spade ─────────
+        int smallestTrump = -1;
+        int smallestTrumpVal = 15;
+
+        for (int i = 0; i < handSize; i++) {
+            if (hand[i].suit == "spades") {
+                if (hand[i].value < smallestTrumpVal) {
+                    smallestTrumpVal = hand[i].value;
+                    smallestTrump = i;
+                }
+            }
+        }
+
+        if (smallestTrump != -1) return smallestTrump;
+
+        // ───────── fallback ─────────
+        int lowestAny = 0;
+        int lowestAnyVal = 15;
+
+        for (int i = 0; i < handSize; i++) {
+            if (hand[i].value < lowestAnyVal) {
+                lowestAnyVal = hand[i].value;
+                lowestAny = i;
+            }
+        }
+
+        return lowestAny;
+     }
+    }
+
+}
+Player::Player(string n,int id,bool human) {
     name = n;
+    player_id = id;
     isHuman = human;
     handSize = 0;
     bid = tricksWon = score = 0;
+    isRevealed = false;
 }
 
 void Player::receiveCard(int cardNum) {
@@ -83,29 +177,30 @@ Card Player::playCard(int index) {
 }
 
 // ───────── AI PLAYER ─────────
-AIPlayer::AIPlayer() {}
-
-AIPlayer::AIPlayer(string n) {
-    name = n;
+AIPlayer::AIPlayer() {
+    handSize = 0;
+    bid = tricksWon = score = 0;
     isHuman = false;
+    isRevealed = false;
+}
+
+AIPlayer::AIPlayer(string n,int id) {
+    name = n;
+    player_id = id;
+    handSize = 0;
+    bid = tricksWon = score = 0;
+    isHuman = false;
+    isRevealed = false;
 }
 
 int AIPlayer::chooseBid() {
     int strong = 0;
 
     for (int i = 0; i < handSize; i++) {
-        if (hand[i].suit == 0 || hand[i].value >= 11)
+        if (hand[i].suit == "spades" || hand[i].value >= 11)
             strong++;
     }
-
-    return max(1, strong / 2);
-}
-
-int AIPlayer::chooseCard(int leadSuit) {
-    for (int i = 0; i < handSize; i++) {
-        if (hand[i].suit == leadSuit)
-            return i;
-    }
-
-    return 0;
+    
+    return max(1, (int)(1.2 * strong / 2));
+   // return max(1,(int)(1.5*strong / 2));
 }
